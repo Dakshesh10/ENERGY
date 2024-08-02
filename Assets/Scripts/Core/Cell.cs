@@ -2,24 +2,41 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
-public enum CellStates : byte
-{
-    kNone,
-    kAlive,
-    kDead
-}
-
+using System.Linq;
+using UnityEngine.Events;
+using UnityEngine.EventSystems;
 
 public class Cell : MonoBehaviour
 {
-    private int currentState;                 //1 for alive and 0 for dead. This is used to quantify the state of cells and neighbours.
+    private int currentState;             
 
-    private bool isAlive;
+    private SpriteRenderer spriteRenderer;
 
-    private SpriteRenderer renderer;
+    [SerializeField]
+    [Range(15f, 90f)]
+    protected int rotateStep = 90;
 
+    [SerializeField]
+    protected Transform container;
+
+    [HideInInspector]
     public IntVector2 coordinates;
+    
     public Defines.CellTypes thisCellType;
+
+    [SerializeField]
+    protected Color activeColor;
+
+    [SerializeField]
+    protected Color deactiveColor;
+
+    protected List<Slot> slots;
+
+    private EventTrigger eventTrigger;
+
+    int currentTargetZAngle = 0;
+
+    bool isMoving = false;
 
     public int CurrentState {
         get => currentState;
@@ -27,36 +44,109 @@ public class Cell : MonoBehaviour
         set
         {
             currentState = value;
-            IsAlive = currentState == 0 ? false : true;
+            OnCurrentStateChanged(value);
         }
     }
 
-    public bool IsAlive
+    private void Awake()
     {
-        get
+        spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
+        if (slots == null)
         {
-            return IsAlive;        
+            slots = new List<Slot>();
+            slots = GetComponentsInChildren<Slot>().ToList();
         }
 
-        private set
+        #region ADDING_EVENT_TRIGGERS
+        if (eventTrigger == null)
         {
-            IsAlive = value;
+            eventTrigger = GetComponent<EventTrigger>();
+
+            EventTrigger.Entry onPointerClick = new EventTrigger.Entry();
+            onPointerClick.eventID = EventTriggerType.PointerClick;
+            UnityAction<BaseEventData> onPointerClickCallback = new UnityAction<BaseEventData>(OnCellClicked);
+            onPointerClick.callback.AddListener(onPointerClickCallback);
+            eventTrigger.triggers.Add(onPointerClick);
         }
+        #endregion
     }
 
-    public void Initialize(int x, int y, bool defaultState)
+    private void OnEnable()
     {
-        renderer = GetComponent<SpriteRenderer>();
-        CurrentState = defaultState ? 1 : 0;
+
+        for (int i=0;i<slots.Count; i++) 
+        { 
+            slots[i].enabled = true;
+            slots[i].initializeSlot(OnSlotStateChanged);
+        }
+
+        Initialize(IntVector2.Zero);
     }
 
-    /// <summary>
-    /// Toggles life-state of cell. 
-    /// </summary>
-    /// <returns>changed state</returns>
-    public int ToggleLife()
+    public void OnCellClicked(BaseEventData baseEventData)
     {
-        CurrentState = !IsAlive ? 1 : 0;
-        return CurrentState;
+        
+        if(isMoving) { return; }
+
+        Vector3 currEuler = container.rotation.eulerAngles;
+        currEuler.z = ((currEuler.z += rotateStep) % 360);
+        currentTargetZAngle = Mathf.CeilToInt(currEuler.z);
+        container.DORotate(currEuler, 0.25f, RotateMode.Fast).OnStart(OnCellRotateStart).OnComplete(OnCellRotateEnd).SetEase(Ease.OutSine);
+    }
+
+    protected void OnCellRotateStart()
+    {
+        isMoving = true;
+    }
+
+    protected void OnCellRotateEnd() 
+    {
+        isMoving = false;
+        Vector3 currEuler = transform.rotation.eulerAngles;
+        currEuler.z = currentTargetZAngle;
+        container.rotation = Quaternion.Euler(currEuler);   
+        // TODO: Trigger the Grid validation from here.
+    }
+
+    public void OnSlotStateChanged(bool newState)
+    {
+        Debug.Log("OnSlotStateChanged() " + newState);
+        bool result = true;
+        for(int i=0;i<slots.Count;i++)
+        {
+            result = result & slots[i].IsActive; 
+            if(!result)
+            {
+                break;
+            }
+        }
+
+        CurrentState = result ? 1 : 0;
+    }
+
+    public void Initialize(IntVector2 coords, int startState = 0)
+    {
+        coordinates = coords;
+        currentState = startState;
+        SetNewColor(currentState, true);
+    }
+
+    public void OnCurrentStateChanged(int newState)
+    {
+        SetNewColor(newState);
+    }
+
+    public void SetNewColor(int newState, bool snap = false)
+    {
+        Color targetColor = newState == 1 ? activeColor : deactiveColor;
+        if (snap) 
+        {
+            if(spriteRenderer == null)
+                spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
+            
+            spriteRenderer.color = targetColor;
+            return;
+        }
+        spriteRenderer.DOColor(targetColor, 0.125f);
     }
 }

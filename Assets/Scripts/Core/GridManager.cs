@@ -7,16 +7,8 @@ using System;
 public class GridManager : MonoBehaviour
 {
     public static GridManager instance;
-    public GameObject cellPrefab;
-
-    public Color aliveColor = Color.green;
-
-    public Color deadColor = Color.red;
 
     Cell[,] Grid;
-
-    [Range(3, 150)]
-    public int xLength, yLength;
 
     public IntVector2 size;
 
@@ -42,7 +34,7 @@ public class GridManager : MonoBehaviour
     {
         cellTypeDictionary = new Dictionary<Defines.CellTypes, GameObject>();
         //Load prefabs from the resources and set them to the dictionary.
-        int n = (int)Defines.CellTypes.kMax;
+        int n = (int)Defines.CellTypes.Max;
         GameObject loadedPrefab;
         for (int i = 0; i < n; i++)
         {
@@ -92,18 +84,23 @@ public class GridManager : MonoBehaviour
                 //DestroyImmediate(child.gameObject);
             });
         }
-        Grid = new Cell[xLength, yLength];
+        Grid = new Cell[size.x, size.y];
     }
 
     void GenerateGrid()
     {
-        for (int i = 0; i < xLength; i++)
+        for (int i = 0; i < size.x; i++)
         {
-            for (int j = 0; j < yLength; j++)
+            for (int j = 0; j < size.y; j++)
             {
-                SpawnTile(new IntVector2(i, j), Defines.CellTypes.kGround);
+                SpawnTile(new IntVector2(i, j), getRandomCellType());
             }
         }
+    }
+
+    public Defines.CellTypes getRandomCellType()
+    {
+        return (Defines.CellTypes)UnityEngine.Random.Range(0, (int)Defines.CellTypes.Max);
     }
 
     /// <summary>
@@ -113,11 +110,6 @@ public class GridManager : MonoBehaviour
     /// <param name="y">curreny column to spawn on</param>
     void SpawnTile(IntVector2 coords, Defines.CellTypes cellType, Quaternion startRotation = default(Quaternion))
     {
-        //if(cellType == Defines.CellTypes.RigidWall)
-        //{
-        //    Debug.Log("x: " + x + " - y:" + y);
-        //}
-
         if (!coords.isInRange(IntVector2.Zero, size))
             return;
 
@@ -129,7 +121,7 @@ public class GridManager : MonoBehaviour
         Cell cell = tile.GetComponent<Cell>();
         tile.name = string.Format("{0}({1},{2})", cellType.ToString(), coords.x , coords.y);
         Grid[coords.x, coords.y] = cell;
-
+        cell.Initialize(coords);
 
         gridOffset.x = -(size.x / 2);
         gridOffset.y = -(size.y / 2);
@@ -152,7 +144,7 @@ public class GridManager : MonoBehaviour
 
     public Vector3 GridToWorld(IntVector2 coords)
     {
-        return new Vector3(transform.position.x + ((coords.x + gridOffset.x) * cellScale.x), 0f, transform.position.z + ((coords.y + gridOffset.y) * cellScale.y));
+        return new Vector3(transform.position.x + ((coords.x + gridOffset.x) * cellScale.x), transform.position.y + ((coords.y + gridOffset.y) * cellScale.y), 0f);
     }
 
     public IntVector2 WorldToGridPos(Vector3 pos)
@@ -194,6 +186,49 @@ public class GridManager : MonoBehaviour
                 //if(Grid[i,j].thisCellType == Defines.CellTypes.Grass || (includeSoftWall && Grid[i, j].thisCellType == Defines.CellTypes.SoftWall)) 
                 neighbors.Add(Grid[i, j]);
             }
+        }
+    }
+
+    // TODO: Flood-fill type algo which will validate state of each cell recursively.
+    protected void validateGrid()
+    {
+        List<IntVector2> queue = new List<IntVector2>();
+
+        queue.Add(new IntVector2(0, 0));
+
+        while (queue.Count > 0)
+        {
+            IntVector2 currCell = queue[queue.Count - 1];
+            queue.RemoveAt(queue.Count - 1);
+
+            int posX = currCell.x;
+            int posY = currCell.y;
+
+            /*if (isValid(screen, m, n, posX + 1, posY, prevC, newC))
+            {
+                // Color with newC
+                // if valid and enqueue
+                screen[posX + 1, posY] = newC;
+                queue.Add(new IntVector2(posX + 1, posY));
+            }
+
+            if (isValid(screen, m, n, posX - 1, posY, prevC, newC))
+            {
+                screen[posX - 1, posY] = newC;
+                queue.Add(new IntVector2(posX - 1, posY));
+            }
+
+            if (isValid(screen, m, n, posX, posY + 1, prevC, newC))
+            {
+                screen[posX, posY + 1] = newC;
+                queue.Add(new IntVector2(posX, posY + 1));
+            }
+
+            if (isValid(screen, m, n, posX, posY - 1, prevC, newC))
+            {
+                screen[posX, posY - 1] = newC;
+                queue.Add(new IntVector2(posX, posY - 1));
+            }*/
         }
     }
 
