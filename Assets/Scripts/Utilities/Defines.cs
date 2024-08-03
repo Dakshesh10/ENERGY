@@ -7,6 +7,7 @@ public class Defines
     public enum CellTypes
     {
         None = -1,
+        Solid,
         Source,
         Bulb,
         Slot_2,
@@ -18,12 +19,18 @@ public class Defines
 
     public static string[] CellPrefabNames =
     {
+        "SolidTile",
         "SourceRoot",
         "BulbRoot",
         "2SlotRoot",
         "2SlotsCurveRoot",
         "3SlotsRoot",
         "4SlotsRoot"
+    };
+
+    public enum Directions
+    {
+        North, South, West, East
     };
 }
 

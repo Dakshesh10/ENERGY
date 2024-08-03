@@ -56,6 +56,18 @@ PrefabInstance:
       propertyPath: thisCellType
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 4224795125138423215, guid: 54619b3dd29de964db3d5fe091055438, type: 3}
+      propertyPath: deactiveColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4224795125138423215, guid: 54619b3dd29de964db3d5fe091055438, type: 3}
+      propertyPath: deactiveColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4224795125138423215, guid: 54619b3dd29de964db3d5fe091055438, type: 3}
+      propertyPath: deactiveColor.r
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5246982514138821193, guid: 54619b3dd29de964db3d5fe091055438, type: 3}
       propertyPath: m_Name
       value: BulbRoot

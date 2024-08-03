@@ -61,6 +61,30 @@ public struct IntVector2
         }
     }
 
+    public static bool operator ==(IntVector2 a, IntVector2 b)
+    {
+        if (a.x == b.x && a.y == b.y)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    public static bool operator !=(IntVector2 a, IntVector2 b)
+    {
+        if (a.x != b.x || a.y != b.y)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Gives a random IntVector2 instance where x and z are in range of v1 and v2 x and z respectively.
     /// </summary>

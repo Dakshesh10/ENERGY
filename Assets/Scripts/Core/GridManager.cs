@@ -18,6 +18,8 @@ public class GridManager : MonoBehaviour
 
     public Dictionary<Defines.CellTypes, GameObject> cellTypeDictionary;
 
+    public List<Cell> sourceCells;
+
     private void OnEnable()
     {
         //Creating singleton instance.
@@ -51,18 +53,6 @@ public class GridManager : MonoBehaviour
                 prefab.SetActive(false);
             }
         }
-    }
-
-    void Start()
-    {
-        
-    }
-
-    public void InitializeSimulation()
-    {
-        
-        InitializeGrid();
-        GenerateGrid();
     }
 
     void InitializeGrid()
@@ -168,7 +158,7 @@ public class GridManager : MonoBehaviour
     /// <param name="x">Grid x coordinate of the cell.</param>
     /// <param name="y">Grid y coordinate of the cell</param>
     /// <param name="neighbors">List to out to.</param>
-    public void FindNeighbors(IntVector2 gridPos, bool includeSoftWall, out List<Cell> neighbors)
+    public void FindNeighbors(IntVector2 gridPos, out List<Cell> neighbors)
     {
         int x = gridPos.x;
         int y = gridPos.y;
@@ -183,56 +173,48 @@ public class GridManager : MonoBehaviour
                 if (i < 0 || j < 0 || i > size.x - 1 || j > size.y - 1)
                     break;
 
-                //if(Grid[i,j].thisCellType == Defines.CellTypes.Grass || (includeSoftWall && Grid[i, j].thisCellType == Defines.CellTypes.SoftWall)) 
                 neighbors.Add(Grid[i, j]);
             }
         }
     }
 
-    // TODO: Flood-fill type algo which will validate state of each cell recursively.
-    protected void validateGrid()
+    public bool isValidPosition(IntVector2 pos)
     {
-        List<IntVector2> queue = new List<IntVector2>();
-
-        queue.Add(new IntVector2(0, 0));
-
-        while (queue.Count > 0)
-        {
-            IntVector2 currCell = queue[queue.Count - 1];
-            queue.RemoveAt(queue.Count - 1);
-
-            int posX = currCell.x;
-            int posY = currCell.y;
-
-            /*if (isValid(screen, m, n, posX + 1, posY, prevC, newC))
-            {
-                // Color with newC
-                // if valid and enqueue
-                screen[posX + 1, posY] = newC;
-                queue.Add(new IntVector2(posX + 1, posY));
-            }
-
-            if (isValid(screen, m, n, posX - 1, posY, prevC, newC))
-            {
-                screen[posX - 1, posY] = newC;
-                queue.Add(new IntVector2(posX - 1, posY));
-            }
-
-            if (isValid(screen, m, n, posX, posY + 1, prevC, newC))
-            {
-                screen[posX, posY + 1] = newC;
-                queue.Add(new IntVector2(posX, posY + 1));
-            }
-
-            if (isValid(screen, m, n, posX, posY - 1, prevC, newC))
-            {
-                screen[posX, posY - 1] = newC;
-                queue.Add(new IntVector2(posX, posY - 1));
-            }*/
-        }
+        return pos.isInRange(IntVector2.Zero, size);
     }
 
-    public void FindEgdeNeighbors(IntVector2 gridPos, bool includeSoftWall, out List<Cell> neighbors)
+    protected bool validateGrid(IntVector2 start)
+    {
+        HashSet<IntVector2> visited = new HashSet<IntVector2>();
+        Stack<IntVector2> stack = new Stack<IntVector2>();
+        List<Cell> neighbors = new List<Cell>();
+        stack.Push(start);
+
+        while (stack.Count > 0)
+        {
+            IntVector2 current = stack.Pop();
+            if (Grid[current.x, current.y].thisCellType == Defines.CellTypes.Bulb) return true;     // If a bulb is found, return.
+            if (!visited.Add(current)) continue;
+
+            Cell cell = Grid[current.x, current.y];
+            FindEgdeNeighbors(cell.coordinates, out neighbors);
+
+            if (neighbors.Count > 0)
+            {
+                for (int i = 0; i < neighbors.Count; i++)
+                {
+                    if (neighbors[i].CurrentState == 1 && !visited.Contains(neighbors[i].coordinates))
+                    {
+                        stack.Push(neighbors[i].coordinates);
+                        neighbors[i].SetNewColor(1);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public void FindEgdeNeighbors(IntVector2 gridPos, out List<Cell> neighbors)
     {
         int x = gridPos.x;
         int y = gridPos.y;
@@ -271,6 +253,42 @@ public class GridManager : MonoBehaviour
         return Grid[x, y];
     }
 
+    public Cell CellAt(IntVector2 pos)
+    {
+        return Grid[pos.x, pos.y];
+    }
+
+    public void OnGameStart()
+    {
+        sourceCells = new List<Cell>();
+        sourceCells = GetCellsOfType(Defines.CellTypes.Source);
+
+        int rows = Grid.GetLength(0);
+        int cols = Grid.GetLength(1);
+
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                if (Grid[i, j].thisCellType != Defines.CellTypes.Solid)
+                {
+                    Grid[i, j].OnGameStart(OnCellClickedComplete);
+                }
+            }
+        }
+    }
+
+    void OnCellClickedComplete()
+    {
+        List<bool> validationResult = new List<bool>();
+        for(int i = 0;i < sourceCells.Count;i++) 
+        {
+            validationResult.Add(validateGrid(sourceCells[i].coordinates));
+        }
+
+        //Since we have results for all the source   
+    }
+
     private void OnValidate()
     {
         if (size.x < 2)
@@ -284,5 +302,26 @@ public class GridManager : MonoBehaviour
 
         if (cellScale.y < 1)
             cellScale.y = 1f;
+    }
+
+    public List<Cell> GetCellsOfType(Defines.CellTypes targetType)
+    {
+        List<Cell> result = new List<Cell>();
+
+        int rows = Grid.GetLength(0);
+        int cols = Grid.GetLength(1);
+
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                if (Grid[i, j].thisCellType == targetType)
+                {
+                    result.Add(Grid[i, j]);
+                }
+            }
+        }
+
+        return result;
     }
 }

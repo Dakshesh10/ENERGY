@@ -38,18 +38,22 @@ public class Cell : MonoBehaviour
 
     bool isMoving = false;
 
+    public System.Action OnCellRotated;
+
     public int CurrentState {
         get => currentState;
 
         set
         {
             currentState = value;
-            OnCurrentStateChanged(value);
+            //OnCurrentStateChanged(value);
         }
     }
 
     private void Awake()
     {
+        if(thisCellType == Defines.CellTypes.Solid) { return; }
+
         spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
         if (slots == null)
         {
@@ -73,6 +77,7 @@ public class Cell : MonoBehaviour
 
     private void OnEnable()
     {
+        if (thisCellType == Defines.CellTypes.Solid) { return; }
 
         for (int i=0;i<slots.Count; i++) 
         { 
@@ -104,13 +109,12 @@ public class Cell : MonoBehaviour
         isMoving = false;
         Vector3 currEuler = transform.rotation.eulerAngles;
         currEuler.z = currentTargetZAngle;
-        container.rotation = Quaternion.Euler(currEuler);   
-        // TODO: Trigger the Grid validation from here.
+        container.rotation = Quaternion.Euler(currEuler);
+        OnCellRotated?.Invoke();
     }
 
     public void OnSlotStateChanged(bool newState)
     {
-        Debug.Log("OnSlotStateChanged() " + newState);
         bool result = true;
         for(int i=0;i<slots.Count;i++)
         {
@@ -129,15 +133,18 @@ public class Cell : MonoBehaviour
         coordinates = coords;
         currentState = startState;
         SetNewColor(currentState, true);
+        if (thisCellType == Defines.CellTypes.Solid) { return; }
     }
 
-    public void OnCurrentStateChanged(int newState)
+    public void OnGameStart(System.Action cellRotateCallback)
     {
-        SetNewColor(newState);
+        if (thisCellType == Defines.CellTypes.Solid) { return; }
+        OnCellRotated += cellRotateCallback;
     }
 
     public void SetNewColor(int newState, bool snap = false)
     {
+        if (thisCellType == Defines.CellTypes.Solid) { return; }
         Color targetColor = newState == 1 ? activeColor : deactiveColor;
         if (snap) 
         {
@@ -148,5 +155,59 @@ public class Cell : MonoBehaviour
             return;
         }
         spriteRenderer.DOColor(targetColor, 0.125f);
+    }
+
+    public Slot GetSlotInDirection(Defines.Directions direction)
+    {
+        Vector2 targetDirection = Vector2.zero;
+
+        switch (direction)
+        {
+            case Defines.Directions.North:      targetDirection = Vector2.up;       break;
+            case Defines.Directions.South:      targetDirection = Vector2.down;     break;
+            case Defines.Directions.West:       targetDirection = Vector2.left;     break;
+            case Defines.Directions.East:       targetDirection = Vector2.right;    break;
+        }
+        return slots.Find(x => Vector2.Dot((x.transform.position - transform.position).normalized, targetDirection) > 0);
+    }
+
+    public Slot GetSlotInDirectionGPT(Defines.Directions direction)
+    {
+        // Get the direction vector in world space based on the container's rotation
+        Vector3 directionVector = GetDirectionVector(direction);
+
+        Slot closestSlot = null;
+        float closestDot = -1f;
+
+        foreach (Slot slot in slots)
+        {
+            Vector3 slotDirection = (slot.transform.position - container.position).normalized;
+            float dot = Vector3.Dot(directionVector, slotDirection);
+
+            if (dot > closestDot)
+            {
+                closestDot = dot;
+                closestSlot = slot;
+            }
+        }
+
+        return closestSlot;
+    }
+
+    private Vector3 GetDirectionVector(Defines.Directions direction)
+    {
+        switch (direction)
+        {
+            case Defines.Directions.East:
+                return container.right;
+            case Defines.Directions.West:
+                return -container.right;
+            case Defines.Directions.North:
+                return container.up;
+            case Defines.Directions.South:
+                return -container.up;
+            default:
+                return Vector3.zero;
+        }
     }
 }

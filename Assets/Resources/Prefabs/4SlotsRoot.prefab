@@ -495,7 +495,7 @@ MonoBehaviour:
     y: 0
   thisCellType: 5
   activeColor: {r: 1, g: 1, b: 1, a: 1}
-  deactiveColor: {r: 0.252, g: 0.14501885, b: 0.14501885, a: 1}
+  deactiveColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!50 &6809769372837897814
 Rigidbody2D:
   serializedVersion: 4
