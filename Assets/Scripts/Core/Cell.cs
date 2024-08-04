@@ -19,7 +19,6 @@ public class Cell : MonoBehaviour
     [SerializeField]
     protected Transform container;
 
-    [HideInInspector]
     public IntVector2 coordinates;
     
     public Defines.CellTypes thisCellType;
@@ -85,7 +84,7 @@ public class Cell : MonoBehaviour
             slots[i].initializeSlot(OnSlotStateChanged);
         }
 
-        Initialize(IntVector2.Zero);
+        // Initialize(IntVector2.Zero);
     }
 
     public void OnCellClicked(BaseEventData baseEventData)
@@ -107,7 +106,7 @@ public class Cell : MonoBehaviour
     protected void OnCellRotateEnd() 
     {
         isMoving = false;
-        Vector3 currEuler = transform.rotation.eulerAngles;
+        Vector3 currEuler = container.rotation.eulerAngles;
         currEuler.z = currentTargetZAngle;
         container.rotation = Quaternion.Euler(currEuler);
         OnCellRotated?.Invoke();
@@ -128,11 +127,12 @@ public class Cell : MonoBehaviour
         CurrentState = result ? 1 : 0;
     }
 
-    public void Initialize(IntVector2 coords, int startState = 0)
+    public void Initialize(IntVector2 coords, int startRotation ,int startState = 0)
     {
         coordinates = coords;
         currentState = startState;
         SetNewColor(currentState, true);
+        container.rotation = Quaternion.Euler(0f, 0f, startRotation);
         if (thisCellType == Defines.CellTypes.Solid) { return; }
     }
 

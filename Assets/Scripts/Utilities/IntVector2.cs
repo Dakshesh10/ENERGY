@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEditor.Progress;
 
 [System.Serializable]
 public struct IntVector2
@@ -122,6 +123,6 @@ public struct IntVector2
 
     public override string ToString()
     {
-        return string.Format("X:{0} - Z:{1}", x, y);
+        return $"<{x}, {y}>"; ;
     }
 }

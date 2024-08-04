@@ -6,8 +6,6 @@ using System;
 
 public class GridManager : MonoBehaviour
 {
-    public static GridManager instance;
-
     Cell[,] Grid;
 
     public IntVector2 size;
@@ -22,14 +20,7 @@ public class GridManager : MonoBehaviour
 
     private void OnEnable()
     {
-        //Creating singleton instance.
-        if (instance == null)
-        {
-            instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-            Destroy(gameObject);
+        
     }
 
     private void Awake()
@@ -55,6 +46,11 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        OnGameStart();
+    }
+
     void InitializeGrid()
     {
         //Destroy all child objects for new Grid.
@@ -77,13 +73,13 @@ public class GridManager : MonoBehaviour
         Grid = new Cell[size.x, size.y];
     }
 
-    void GenerateGrid()
+    void GenerateGrid(IntVector2[,] gridData)
     {
         for (int i = 0; i < size.x; i++)
         {
             for (int j = 0; j < size.y; j++)
             {
-                SpawnTile(new IntVector2(i, j), getRandomCellType());
+                SpawnTile(new IntVector2(i, j), (Defines.CellTypes)gridData[i, j].x, gridData[i, j].y);
             }
         }
     }
@@ -98,20 +94,18 @@ public class GridManager : MonoBehaviour
     /// </summary>
     /// <param name="x">current row to spawn on</param>
     /// <param name="y">curreny column to spawn on</param>
-    void SpawnTile(IntVector2 coords, Defines.CellTypes cellType, Quaternion startRotation = default(Quaternion))
+    void SpawnTile(IntVector2 coords, Defines.CellTypes cellType, int startRotation = 0)
     {
         if (!coords.isInRange(IntVector2.Zero, size))
             return;
 
         GameObject tile = Instantiate(cellTypeDictionary[cellType]);
 
-        if (startRotation != default(Quaternion))
-            tile.transform.localRotation = startRotation;
 
         Cell cell = tile.GetComponent<Cell>();
-        tile.name = string.Format("{0}({1},{2})", cellType.ToString(), coords.x , coords.y);
+        tile.name = $"{cellType.ToString()}-{coords.ToString()}";
         Grid[coords.x, coords.y] = cell;
-        cell.Initialize(coords);
+        cell.Initialize(coords, startRotation);
 
         gridOffset.x = -(size.x / 2);
         gridOffset.y = -(size.y / 2);
@@ -185,6 +179,7 @@ public class GridManager : MonoBehaviour
 
     protected bool validateGrid(IntVector2 start)
     {
+        //Debug.Log("[GridManager] ValidateGrid() -- " + start);
         HashSet<IntVector2> visited = new HashSet<IntVector2>();
         Stack<IntVector2> stack = new Stack<IntVector2>();
         List<Cell> neighbors = new List<Cell>();
@@ -208,6 +203,7 @@ public class GridManager : MonoBehaviour
                         stack.Push(neighbors[i].coordinates);
                         neighbors[i].SetNewColor(1);
                     }
+                    //visited.Add(neighbors[i].coordinates);
                 }
             }
         }
@@ -227,6 +223,8 @@ public class GridManager : MonoBehaviour
         {
             if (i != x)        //Exclude the curr tile
             {
+                if (i < 0 || i > size.x - 1)
+                    continue;
                 neighbors.Add(Grid[i, y]);
             }
         }
@@ -236,11 +234,15 @@ public class GridManager : MonoBehaviour
         {
             if (i != y)
             {
+                if (i < 0 || i > size.y - 1)
+                    continue;
                 neighbors.Add(Grid[x, i]);
             }
         }
     }
 
+    //Callback for Generate button in inspector of GridManager. This is for level design where we can
+    // create a grid and customize it.
     public void OnGenerateClicked()
     {
         Awake();
@@ -260,6 +262,21 @@ public class GridManager : MonoBehaviour
 
     public void OnGameStart()
     {
+
+        if(Grid == null)
+        {
+            int childIndex = 0;
+            Grid = new Cell[size.x, size.y];
+            for (int i = 0; i < size.x; i++)
+            {
+                for (int j = 0; j < size.y; j++)
+                {
+                    
+                    Grid[i, j] = transform.GetChild(childIndex).GetComponent<Cell>();
+                    childIndex++;
+                }
+            }
+        }
         sourceCells = new List<Cell>();
         sourceCells = GetCellsOfType(Defines.CellTypes.Source);
 
@@ -280,6 +297,7 @@ public class GridManager : MonoBehaviour
 
     void OnCellClickedComplete()
     {
+        //Debug.Log("[GridManager] OnCellClickedComplete()");
         List<bool> validationResult = new List<bool>();
         for(int i = 0;i < sourceCells.Count;i++) 
         {
@@ -287,6 +305,7 @@ public class GridManager : MonoBehaviour
         }
 
         //Since we have results for all the source   
+        Debug.Log("[GridManager] Result: " + validationResult.ToArray().ToString());
     }
 
     private void OnValidate()

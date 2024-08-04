@@ -32,5 +32,7 @@ public class Defines
     {
         North, South, West, East
     };
+
+    public const string PlayerCurrentLevel = "PLAYER_CURRENT_LEVEL";
 }
 
