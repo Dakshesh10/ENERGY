@@ -30,6 +30,6 @@ Material:
     - _mult: 0.97
     - _pwer: 0.96
     m_Colors:
-    - _Bottom: {r: 1, g: 0.73474467, b: 0.726, a: 1}
-    - _Top: {r: 0.259, g: 0.7297532, b: 1, a: 1}
+    - _Bottom: {r: 1, g: 0.6784572, b: 0.669, a: 1}
+    - _Top: {r: 0.55700004, g: 0.8382698, b: 1, a: 1}
   m_BuildTextureStacks: []

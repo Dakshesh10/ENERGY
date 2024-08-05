@@ -14,9 +14,25 @@ public class GridManager : MonoBehaviour
 
     public Vector2 cellScale;
 
-    public Dictionary<Defines.CellTypes, GameObject> cellTypeDictionary;
+    public Dictionary<Defines.CellTypes, GameObject> cellTypeDictionary = null;
 
     public List<Cell> sourceCells;
+
+    protected IntVector2[,] currentLevelData;
+
+    [Tooltip("JSON for editor script and test JSON based level data. Generate button uses this JSON to generate grid in Scene in Editor")]
+    public TextAsset editorLevelJSON;
+    public IntVector2[,] CurrentLevelData {
+        get {  return currentLevelData; }
+        
+        set 
+        { 
+            currentLevelData = new IntVector2[value.GetLength(0), value.GetLength(1)];
+            currentLevelData = value;
+            size.x = currentLevelData.GetLength(0);
+            size.y = currentLevelData.GetLength(1);
+        } 
+    }
 
     private void OnEnable()
     {
@@ -25,7 +41,8 @@ public class GridManager : MonoBehaviour
 
     private void Awake()
     {
-        cellTypeDictionary = new Dictionary<Defines.CellTypes, GameObject>();
+        if(cellTypeDictionary == null)
+            cellTypeDictionary = new Dictionary<Defines.CellTypes, GameObject>();
         //Load prefabs from the resources and set them to the dictionary.
         int n = (int)Defines.CellTypes.Max;
         GameObject loadedPrefab;
@@ -33,14 +50,14 @@ public class GridManager : MonoBehaviour
         {
             //Defines.CellTypes tileType = (Defines.CellTypes)i;
             string prefabName = Defines.CellPrefabNames[i];
-            if (string.IsNullOrEmpty(prefabName))
+            if (string.IsNullOrEmpty(prefabName) || cellTypeDictionary.ContainsKey((Defines.CellTypes)i))
                 continue;
 
             loadedPrefab = Resources.Load("Prefabs/" + prefabName) as GameObject;
             if (loadedPrefab != null)
             {
                 GameObject prefab = Instantiate(loadedPrefab) as GameObject;
-                cellTypeDictionary.Add((Defines.CellTypes)i, prefab);
+                cellTypeDictionary.TryAdd((Defines.CellTypes)i, prefab);
                 prefab.SetActive(false);
             }
         }
@@ -48,7 +65,7 @@ public class GridManager : MonoBehaviour
 
     private void Start()
     {
-        OnGameStart();
+        //OnGameStart();
     }
 
     void InitializeGrid()
@@ -73,13 +90,18 @@ public class GridManager : MonoBehaviour
         Grid = new Cell[size.x, size.y];
     }
 
-    void GenerateGrid(IntVector2[,] gridData)
+    /// <summary>
+    /// Generates the grid based on 2D array deserialized from level-JSON file.
+    /// </summary>
+    /// <param name="gridData">2D array buffer which maps as is to the actual grid, 
+    /// and properties X and Y represent Cell type and initial rotation of cell respectively</param>
+    void GenerateGrid(bool isEditorTriggered = false)
     {
         for (int i = 0; i < size.x; i++)
         {
             for (int j = 0; j < size.y; j++)
             {
-                SpawnTile(new IntVector2(i, j), (Defines.CellTypes)gridData[i, j].x, gridData[i, j].y);
+                SpawnTile(new IntVector2(i, j), (Defines.CellTypes)currentLevelData[i, j].x, currentLevelData[i, j].y, isEditorTriggered);
             }
         }
     }
@@ -92,9 +114,11 @@ public class GridManager : MonoBehaviour
     /// <summary>
     /// Spawns tile at requested x and y matrix indeces. 
     /// </summary>
-    /// <param name="x">current row to spawn on</param>
-    /// <param name="y">curreny column to spawn on</param>
-    void SpawnTile(IntVector2 coords, Defines.CellTypes cellType, int startRotation = 0)
+    /// <param name="coords"> X and Y coords in Grid space to spawn at </param>
+    /// <param name="cellType"> Cell type </param>
+    /// <param name="startRotation"> Initial rotation of cell. </param>
+    /// <param name="isEditorTriggered"> Flag for if cell spawn was triggered by Editor button callback.</param>
+    void SpawnTile(IntVector2 coords, Defines.CellTypes cellType, int startRotation = 0, bool isEditorTriggered = false)
     {
         if (!coords.isInRange(IntVector2.Zero, size))
             return;
@@ -106,6 +130,11 @@ public class GridManager : MonoBehaviour
         tile.name = $"{cellType.ToString()}-{coords.ToString()}";
         Grid[coords.x, coords.y] = cell;
         cell.Initialize(coords, startRotation);
+
+        if (!isEditorTriggered && cell.thisCellType != Defines.CellTypes.Solid)
+        {
+            cell.OnGameStart(OnCellClickedComplete);
+        }
 
         gridOffset.x = -(size.x / 2);
         gridOffset.y = -(size.y / 2);
@@ -198,7 +227,7 @@ public class GridManager : MonoBehaviour
             {
                 for (int i = 0; i < neighbors.Count; i++)
                 {
-                    if (neighbors[i].CurrentState == 1 && !visited.Contains(neighbors[i].coordinates))
+                    if (IsCellConnected(cell, neighbors[i]) && !visited.Contains(neighbors[i].coordinates))
                     {
                         stack.Push(neighbors[i].coordinates);
                         neighbors[i].SetNewColor(1);
@@ -241,13 +270,29 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    public Cell GetNeighborCellInDirection(Cell current, Defines.Directions direction)
+    {
+        Vector2 targetDirection = Vector2.zero;
+        switch (direction)
+        {
+            case Defines.Directions.North: targetDirection = Vector2.up; break;
+            case Defines.Directions.South: targetDirection = Vector2.down; break;
+            case Defines.Directions.West: targetDirection = Vector2.left; break;
+            case Defines.Directions.East: targetDirection = Vector2.right; break;
+        }
+        Vector2 result = new Vector2(current.coordinates.x, current.coordinates.y) + targetDirection;
+
+        return CellAt((int)result.x, (int)result.y);
+    }
+
     //Callback for Generate button in inspector of GridManager. This is for level design where we can
     // create a grid and customize it.
-    public void OnGenerateClicked()
+    public void OnGenerateClicked(IntVector2[,] levelData)
     {
+        CurrentLevelData = levelData;
         Awake();
         InitializeGrid();
-        GenerateGrid();
+        GenerateGrid(true);
     }
 
     public Cell CellAt(int x, int y)
@@ -260,10 +305,10 @@ public class GridManager : MonoBehaviour
         return Grid[pos.x, pos.y];
     }
 
-    public void OnGameStart()
+    public void OnGameStart(IntVector2[,] levelData)
     {
-
-        if(Grid == null)
+        CurrentLevelData = levelData;
+        /*if(Grid == null)
         {
             int childIndex = 0;
             Grid = new Cell[size.x, size.y];
@@ -276,23 +321,12 @@ public class GridManager : MonoBehaviour
                     childIndex++;
                 }
             }
-        }
+        }*/
+
+        InitializeGrid();
+        GenerateGrid();
         sourceCells = new List<Cell>();
         sourceCells = GetCellsOfType(Defines.CellTypes.Source);
-
-        int rows = Grid.GetLength(0);
-        int cols = Grid.GetLength(1);
-
-        for (int i = 0; i < rows; i++)
-        {
-            for (int j = 0; j < cols; j++)
-            {
-                if (Grid[i, j].thisCellType != Defines.CellTypes.Solid)
-                {
-                    Grid[i, j].OnGameStart(OnCellClickedComplete);
-                }
-            }
-        }
     }
 
     void OnCellClickedComplete()
@@ -342,5 +376,23 @@ public class GridManager : MonoBehaviour
         }
 
         return result;
+    }
+
+    public bool IsCellConnected(Cell cell, Cell neighbor)
+    {
+        foreach(Slot slot in cell.slots)
+        {
+            Defines.Directions slotDirForNeighbor = Defines.directionCheckMatrix[slot.CurrentDirection];
+            Slot slotToCheck = neighbor.GetSlotInDirection(slotDirForNeighbor);
+            if (slotToCheck != null)
+            {
+                if(slot.IsActive && slotToCheck.IsActive)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

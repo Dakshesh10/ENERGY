@@ -4,27 +4,12 @@ using UnityEngine;
 using Newtonsoft.Json;
 using System.Drawing;
 
-public class JSONUtils: MonoBehaviour 
+public class JSONUtils
 {
     [SerializeField]
-    protected TextAsset jsonAsset;
+    protected TextAsset jsonAsset;          
 
-    private void OnEnable()
-    {
-        IntVector2[,] grid = ParseJsonFile(jsonAsset);
-
-        
-            for (int i = 0; i < grid.GetLength(0); i++)
-            {
-                for (int j = 0; j < grid.GetLength(1); j++)
-                {
-                    Debug.Log($"JSON - {grid[i,j]}");
-                }
-            }
-        
-    }
-
-    public static IntVector2[,] ParseJsonFile(TextAsset jsonAsset)
+    public static IntVector2[,] ParseLevelGridJsonFile(TextAsset jsonAsset)
     {
         if (jsonAsset == null)
         {
@@ -45,7 +30,7 @@ public class JSONUtils: MonoBehaviour
         // Fill the array with the parsed data, starting from the last line
         for (int i = 0; i < rows; i++)
         {
-            var row = nestedList[rows - 1 - i];
+            var row = nestedList[i];
             for (int j = 0; j < cols; j++)
             {
                 resultArray[i, j] = row[j];

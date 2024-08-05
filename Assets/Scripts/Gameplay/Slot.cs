@@ -8,6 +8,15 @@ public class Slot : MonoBehaviour
 
     public event System.Action<bool> onStateChanged;
 
+    private Defines.Directions currentDirection;
+
+    public Defines.Directions CurrentDirection
+    { 
+        get { return currentDirection; } 
+
+        set { currentDirection = value; }
+    }
+
     public bool IsActive 
     { 
         get { return isActive; }

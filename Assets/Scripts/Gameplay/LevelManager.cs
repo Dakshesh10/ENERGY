@@ -9,39 +9,27 @@ using UnityEngine;
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager instance = null;
-    GridManager levelGrid;
+
+    [SerializeField]
+    protected GridManager levelGrid;
+
+    [SerializeField]
+    protected int testLevel = 1;
 
     [SerializeField]
     protected TextAsset[] levelGridsData;
 
     protected int currentLevel;
 
-    public Dictionary<Defines.CellTypes, GameObject> cellTypeDictionary = null;
     // Start is called before the first frame update
     private void Awake()
     {
-        if (cellTypeDictionary == null)
-        {
-            cellTypeDictionary = new Dictionary<Defines.CellTypes, GameObject>();
-            //Load prefabs from the resources and set them to the dictionary.
-            int n = (int)Defines.CellTypes.Max;
-            GameObject loadedPrefab;
-            for (int i = 0; i < n; i++)
-            {
-                //Defines.CellTypes tileType = (Defines.CellTypes)i;
-                string prefabName = Defines.CellPrefabNames[i];
-                if (string.IsNullOrEmpty(prefabName))
-                    continue;
+        
+    }
 
-                loadedPrefab = Resources.Load("Prefabs/" + prefabName) as GameObject;
-                if (loadedPrefab != null)
-                {
-                    GameObject prefab = Instantiate(loadedPrefab) as GameObject;
-                    cellTypeDictionary.Add((Defines.CellTypes)i, prefab);
-                    prefab.SetActive(false);
-                }
-            }
-        }
+    private void Start()
+    {
+        StartLevel(testLevel);
     }
 
     private void OnEnable()
@@ -66,8 +54,13 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    public void StartLevel()
+    public IntVector2[,] GetLevelData(int level) 
     {
-        
+        return JSONUtils.ParseLevelGridJsonFile(levelGridsData[level-1]);
+    }
+
+    public void StartLevel(int level)
+    {
+        levelGrid.OnGameStart(GetLevelData(level));
     }
 }

@@ -29,7 +29,7 @@ public class Cell : MonoBehaviour
     [SerializeField]
     protected Color deactiveColor;
 
-    protected List<Slot> slots;
+    public List<Slot> slots;
 
     private EventTrigger eventTrigger;
 
@@ -38,6 +38,38 @@ public class Cell : MonoBehaviour
     bool isMoving = false;
 
     public System.Action OnCellRotated;
+
+    public Slot EastSlot
+    { 
+        get 
+        { 
+            return GetSlotInDirection(Defines.Directions.East); 
+        } 
+    }
+
+    public Slot WestSlot
+    {
+        get
+        {
+            return GetSlotInDirection(Defines.Directions.West);
+        }
+    }
+
+    public Slot NorthSlot
+    {
+        get
+        {
+            return GetSlotInDirection(Defines.Directions.North);
+        }
+    }
+
+    public Slot SouthSlot
+    {
+        get
+        {
+            return GetSlotInDirection(Defines.Directions.South);
+        }
+    }
 
     public int CurrentState {
         get => currentState;
@@ -54,10 +86,10 @@ public class Cell : MonoBehaviour
         if(thisCellType == Defines.CellTypes.Solid) { return; }
 
         spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
-        if (slots == null)
+        if (slots == null || slots.Count == 0)
         {
             slots = new List<Slot>();
-            slots = GetComponentsInChildren<Slot>().ToList();
+            slots = container.GetComponentsInChildren<Slot>().ToList();
         }
 
         #region ADDING_EVENT_TRIGGERS
@@ -81,9 +113,10 @@ public class Cell : MonoBehaviour
         for (int i=0;i<slots.Count; i++) 
         { 
             slots[i].enabled = true;
+            UpdateSlotDirection(slots[i]);
             slots[i].initializeSlot(OnSlotStateChanged);
         }
-
+        
         // Initialize(IntVector2.Zero);
     }
 
@@ -103,13 +136,18 @@ public class Cell : MonoBehaviour
         isMoving = true;
     }
 
-    protected void OnCellRotateEnd() 
+    protected void OnCellRotateEnd()
     {
         isMoving = false;
         Vector3 currEuler = container.rotation.eulerAngles;
         currEuler.z = currentTargetZAngle;
         container.rotation = Quaternion.Euler(currEuler);
         OnCellRotated?.Invoke();
+
+        foreach (Slot slot in slots)
+        {
+            UpdateSlotDirection(slot);
+        }
     }
 
     public void OnSlotStateChanged(bool newState)
@@ -131,6 +169,11 @@ public class Cell : MonoBehaviour
     {
         coordinates = coords;
         currentState = startState;
+        if(thisCellType == Defines.CellTypes.Source || thisCellType == Defines.CellTypes.Source_2Slots) 
+        { 
+            currentState = 1; 
+        
+        }
         SetNewColor(currentState, true);
         container.rotation = Quaternion.Euler(0f, 0f, startRotation);
         if (thisCellType == Defines.CellTypes.Solid) { return; }
@@ -150,11 +193,20 @@ public class Cell : MonoBehaviour
         {
             if(spriteRenderer == null)
                 spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
+
+            if(TryGetComponent<SpriteRenderer>(out SpriteRenderer iconRenderer))
+            {
+                spriteRenderer.color = targetColor;
+            }
             
             spriteRenderer.color = targetColor;
             return;
         }
         spriteRenderer.DOColor(targetColor, 0.125f);
+        if (TryGetComponent<SpriteRenderer>(out SpriteRenderer IconRenderer))
+        {
+            IconRenderer.DOColor(targetColor, 0.125f);
+        }
     }
 
     public Slot GetSlotInDirection(Defines.Directions direction)
@@ -171,27 +223,25 @@ public class Cell : MonoBehaviour
         return slots.Find(x => Vector2.Dot((x.transform.position - transform.position).normalized, targetDirection) > 0);
     }
 
-    public Slot GetSlotInDirectionGPT(Defines.Directions direction)
+    public void UpdateSlotDirection(Slot slot)
     {
-        // Get the direction vector in world space based on the container's rotation
-        Vector3 directionVector = GetDirectionVector(direction);
 
-        Slot closestSlot = null;
-        float closestDot = -1f;
-
-        foreach (Slot slot in slots)
+        Vector2 targetDirection = Vector2.zero;
+        for (int i = 0; i <= (int)Defines.Directions.East; i++) 
         {
-            Vector3 slotDirection = (slot.transform.position - container.position).normalized;
-            float dot = Vector3.Dot(directionVector, slotDirection);
-
-            if (dot > closestDot)
+            switch ((Defines.Directions)i)
             {
-                closestDot = dot;
-                closestSlot = slot;
+                case Defines.Directions.North: targetDirection = Vector2.up; break;
+                case Defines.Directions.South: targetDirection = Vector2.down; break;
+                case Defines.Directions.West: targetDirection = Vector2.left; break;
+                case Defines.Directions.East: targetDirection = Vector2.right; break;
+            }
+            if (Vector2.Dot((slot.transform.position - transform.position).normalized, targetDirection) > 0)
+            {
+                slot.CurrentDirection = (Defines.Directions)i;
+                break;
             }
         }
-
-        return closestSlot;
     }
 
     private Vector3 GetDirectionVector(Defines.Directions direction)
