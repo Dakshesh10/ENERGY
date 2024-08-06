@@ -18,7 +18,11 @@ public class GridManager : MonoBehaviour
 
     public List<Cell> sourceCells;
 
+    public List<Cell> allCells;
+
     protected IntVector2[,] currentLevelData;
+
+    public Action OnLevelSolved;
 
     [Tooltip("JSON for editor script and test JSON based level data. Generate button uses this JSON to generate grid in Scene in Editor")]
     public TextAsset editorLevelJSON;
@@ -217,7 +221,16 @@ public class GridManager : MonoBehaviour
         while (stack.Count > 0)
         {
             IntVector2 current = stack.Pop();
-            if (Grid[current.x, current.y].thisCellType == Defines.CellTypes.Bulb) return true;     // If a bulb is found, return.
+            if (Grid[current.x, current.y].thisCellType == Defines.CellTypes.Bulb)
+            {
+                if (Grid[current.x, current.y].CurrentState == 1)
+                {
+                    Grid[current.x, current.y].SetNewColor(1);
+                    return true;     // If a bulb is found, return.
+                }
+                else
+                    return false;
+            }
             if (!visited.Add(current)) continue;
 
             Cell cell = Grid[current.x, current.y];
@@ -229,10 +242,12 @@ public class GridManager : MonoBehaviour
                 {
                     if (IsCellConnected(cell, neighbors[i]) && !visited.Contains(neighbors[i].coordinates))
                     {
-                        stack.Push(neighbors[i].coordinates);
-                        neighbors[i].SetNewColor(1);
+                        if (neighbors[i].thisCellType != Defines.CellTypes.Source)      //Source cell doesn't need to iterate
+                        {
+                            stack.Push(neighbors[i].coordinates);
+                            neighbors[i].SetNewColor(1);
+                        }
                     }
-                    //visited.Add(neighbors[i].coordinates);
                 }
             }
         }
@@ -254,6 +269,10 @@ public class GridManager : MonoBehaviour
             {
                 if (i < 0 || i > size.x - 1)
                     continue;
+
+                if (Grid[i, y].thisCellType == Defines.CellTypes.Solid)
+                    continue;
+
                 neighbors.Add(Grid[i, y]);
             }
         }
@@ -265,6 +284,10 @@ public class GridManager : MonoBehaviour
             {
                 if (i < 0 || i > size.y - 1)
                     continue;
+
+                if (Grid[x, i].thisCellType == Defines.CellTypes.Solid)
+                    continue;
+
                 neighbors.Add(Grid[x, i]);
             }
         }
@@ -305,9 +328,10 @@ public class GridManager : MonoBehaviour
         return Grid[pos.x, pos.y];
     }
 
-    public void OnGameStart(IntVector2[,] levelData)
+    public void OnGameStart(IntVector2[,] levelData, Action onLevelCompleteCallback)
     {
         CurrentLevelData = levelData;
+        OnLevelSolved += onLevelCompleteCallback;
         /*if(Grid == null)
         {
             int childIndex = 0;
@@ -325,8 +349,9 @@ public class GridManager : MonoBehaviour
 
         InitializeGrid();
         GenerateGrid();
-        sourceCells = new List<Cell>();
-        sourceCells = GetCellsOfType(Defines.CellTypes.Source);
+        allCells = new List<Cell>();
+        allCells = GetAllCells();
+        sourceCells = new List<Cell>(allCells.FindAll(x=> x.thisCellType == Defines.CellTypes.Source));
     }
 
     void OnCellClickedComplete()
@@ -338,8 +363,18 @@ public class GridManager : MonoBehaviour
             validationResult.Add(validateGrid(sourceCells[i].coordinates));
         }
 
-        //Since we have results for all the source   
-        Debug.Log("[GridManager] Result: " + validationResult.ToArray().ToString());
+        bool finalResult = false;
+        bool isAllCellActive = false;
+        if(validationResult.Count > 0) 
+        {
+            finalResult =  validationResult.All(x => x);       // If all entries are true, then final resule is also true;
+            isAllCellActive = allCells.All(x => x.CurrentState == 1);
+
+            if (finalResult && isAllCellActive)
+            {
+                OnLevelSolved?.Invoke();
+            }
+        }
     }
 
     private void OnValidate()
@@ -357,6 +392,30 @@ public class GridManager : MonoBehaviour
             cellScale.y = 1f;
     }
 
+    public List<Cell> GetAllCells()
+    {
+        List<Cell> result = new List<Cell>();
+
+        int rows = Grid.GetLength(0);
+        int cols = Grid.GetLength(1);
+
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                //if(targetType.HasFlag(Grid[i, j].thisCellType))
+                if (Grid[i, j].thisCellType != Defines.CellTypes.Solid)
+                {
+                    result.Add(Grid[i, j]);
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+
     public List<Cell> GetCellsOfType(Defines.CellTypes targetType)
     {
         List<Cell> result = new List<Cell>();
@@ -368,6 +427,7 @@ public class GridManager : MonoBehaviour
         {
             for (int j = 0; j < cols; j++)
             {
+                //if(targetType.HasFlag(Grid[i, j].thisCellType))
                 if (Grid[i, j].thisCellType == targetType)
                 {
                     result.Add(Grid[i, j]);
@@ -378,11 +438,30 @@ public class GridManager : MonoBehaviour
         return result;
     }
 
+    /// <summary>
+    /// Determines which direction is neighbor from w.r.t. cell and checks for slot in that direction, and
+    /// checks state of neighbor's slot in inverse direction to check connection.
+    /// </summary>
+    /// <param name="cell"> Cuurent cell. </param>
+    /// <param name="neighbor"> Neighbor cell. </param>
     public bool IsCellConnected(Cell cell, Cell neighbor)
     {
-        foreach(Slot slot in cell.slots)
+        Defines.Directions directionTowardsNeighbor = Defines.directionAxisInverseLookup[(Vector2)(neighbor.transform.position - cell.transform.position)];
+        Slot cellSlotToCheck = cell.GetSlotInDirection(directionTowardsNeighbor);
+        Slot neighbotSlotToCheck = neighbor.GetSlotInDirection(Defines.directionCheckLookup[directionTowardsNeighbor]);
+        
+        if(cellSlotToCheck != null && neighbotSlotToCheck != null) 
         {
-            Defines.Directions slotDirForNeighbor = Defines.directionCheckMatrix[slot.CurrentDirection];
+            if (neighbotSlotToCheck.IsActive && cellSlotToCheck.IsActive)
+            {
+                return true;
+            }
+        }
+
+        /*foreach(Slot slot in cell.slots)
+        {
+            if(slot.CurrentDirection == Defines.Directions.None || slot.CurrentDirection == Defines.Directions.Max) continue;
+            Defines.Directions slotDirForNeighbor = Defines.directionCheckLookup[slot.CurrentDirection];
             Slot slotToCheck = neighbor.GetSlotInDirection(slotDirForNeighbor);
             if (slotToCheck != null)
             {
@@ -391,7 +470,7 @@ public class GridManager : MonoBehaviour
                     return true;
                 }
             }
-        }
+        }*/
 
         return false;
     }

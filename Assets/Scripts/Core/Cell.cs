@@ -92,6 +92,11 @@ public class Cell : MonoBehaviour
             slots = container.GetComponentsInChildren<Slot>().ToList();
         }
 
+        foreach (Slot slot in slots) 
+        {
+            slot.currentCellType = thisCellType;
+        }
+
         #region ADDING_EVENT_TRIGGERS
         if (eventTrigger == null)
         {
@@ -104,6 +109,11 @@ public class Cell : MonoBehaviour
             eventTrigger.triggers.Add(onPointerClick);
         }
         #endregion
+    }
+
+    public void BlockInput()
+    {
+        eventTrigger.enabled = false;
     }
 
     private void OnEnable()
@@ -142,37 +152,31 @@ public class Cell : MonoBehaviour
         Vector3 currEuler = container.rotation.eulerAngles;
         currEuler.z = currentTargetZAngle;
         container.rotation = Quaternion.Euler(currEuler);
-        OnCellRotated?.Invoke();
-
         foreach (Slot slot in slots)
         {
             UpdateSlotDirection(slot);
         }
+        OnCellRotated?.Invoke();
     }
 
     public void OnSlotStateChanged(bool newState)
     {
-        bool result = true;
-        for(int i=0;i<slots.Count;i++)
-        {
-            result = result & slots[i].IsActive; 
-            if(!result)
-            {
-                break;
-            }
-        }
-
+        bool result = slots.All(x => x.IsActive);
+        
         CurrentState = result ? 1 : 0;
     }
 
     public void Initialize(IntVector2 coords, int startRotation ,int startState = 0)
     {
         coordinates = coords;
-        currentState = startState;
+
         if(thisCellType == Defines.CellTypes.Source || thisCellType == Defines.CellTypes.Source_2Slots) 
         { 
             currentState = 1; 
-        
+        }
+        else 
+        {
+            currentState = startState;
         }
         SetNewColor(currentState, true);
         container.rotation = Quaternion.Euler(0f, 0f, startRotation);
@@ -188,6 +192,8 @@ public class Cell : MonoBehaviour
     public void SetNewColor(int newState, bool snap = false)
     {
         if (thisCellType == Defines.CellTypes.Solid) { return; }
+        if (spriteRenderer == null)
+            spriteRenderer = container.GetComponentInChildren<SpriteRenderer>();
         Color targetColor = newState == 1 ? activeColor : deactiveColor;
         if (snap) 
         {
@@ -196,7 +202,7 @@ public class Cell : MonoBehaviour
 
             if(TryGetComponent<SpriteRenderer>(out SpriteRenderer iconRenderer))
             {
-                spriteRenderer.color = targetColor;
+                iconRenderer.color = targetColor;
             }
             
             spriteRenderer.color = targetColor;
@@ -220,14 +226,14 @@ public class Cell : MonoBehaviour
             case Defines.Directions.West:       targetDirection = Vector2.left;     break;
             case Defines.Directions.East:       targetDirection = Vector2.right;    break;
         }
-        return slots.Find(x => Vector2.Dot((x.transform.position - transform.position).normalized, targetDirection) > 0);
+        return slots.Find(x => Vector2.Dot((x.transform.position - transform.position).normalized, targetDirection) > 0.25f);
     }
 
     public void UpdateSlotDirection(Slot slot)
     {
-
+        slot.CurrentDirection = Defines.Directions.None;
         Vector2 targetDirection = Vector2.zero;
-        for (int i = 0; i <= (int)Defines.Directions.East; i++) 
+        for (int i = 0; i < (int)Defines.Directions.Max; i++) 
         {
             switch ((Defines.Directions)i)
             {
@@ -235,29 +241,13 @@ public class Cell : MonoBehaviour
                 case Defines.Directions.South: targetDirection = Vector2.down; break;
                 case Defines.Directions.West: targetDirection = Vector2.left; break;
                 case Defines.Directions.East: targetDirection = Vector2.right; break;
+                default: targetDirection = Vector2.zero; break; 
             }
-            if (Vector2.Dot((slot.transform.position - transform.position).normalized, targetDirection) > 0)
+            if (Vector2.Dot((slot.transform.position - transform.position).normalized, targetDirection) > 0.25f)
             {
                 slot.CurrentDirection = (Defines.Directions)i;
                 break;
             }
-        }
-    }
-
-    private Vector3 GetDirectionVector(Defines.Directions direction)
-    {
-        switch (direction)
-        {
-            case Defines.Directions.East:
-                return container.right;
-            case Defines.Directions.West:
-                return -container.right;
-            case Defines.Directions.North:
-                return container.up;
-            case Defines.Directions.South:
-                return -container.up;
-            default:
-                return Vector3.zero;
         }
     }
 }

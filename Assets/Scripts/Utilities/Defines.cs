@@ -32,15 +32,40 @@ public class Defines
 
     public enum Directions
     {
-        North = 0, South, West, East
+        None = -1, North = 0, South, West, East, Max
     };
 
-    public static Dictionary<Directions, Directions> directionCheckMatrix = new Dictionary<Directions, Directions>()
+    /// <summary>
+    /// Used to lookup for opposite direction.
+    /// </summary>
+    public static Dictionary<Directions, Directions> directionCheckLookup = new Dictionary<Directions, Directions>()
     {
             { Directions.North, Directions.South },
             { Directions.East, Directions.West},
             { Directions.South, Directions.North },
             { Directions.West, Directions.East }
+    };
+
+    /// <summary>
+    /// Used to lookup for converting direction into world vector.
+    /// </summary>
+    public static Dictionary<Directions, Vector2> directionAxisLookup = new Dictionary<Directions, Vector2>()
+    {
+            { Directions.North, Vector2.up },
+            { Directions.East,  Vector2.right},
+            { Directions.South, Vector2.down },
+            { Directions.West,  Vector2.left }
+    };
+
+    /// <summary>
+    /// Used to lookup for converting world vector into direction.
+    /// </summary>
+    public static Dictionary<Vector2, Directions> directionAxisInverseLookup = new Dictionary<Vector2, Directions>()
+    {
+            { Vector2.up, Directions.North },
+            { Vector2.right, Directions.East },
+            { Vector2.down, Directions.South },
+            { Vector2.left, Directions.West }
     };
 
     public const string PlayerCurrentLevel = "PLAYER_CURRENT_LEVEL";

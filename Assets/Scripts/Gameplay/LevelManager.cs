@@ -21,16 +21,8 @@ public class LevelManager : MonoBehaviour
 
     protected int currentLevel;
 
-    // Start is called before the first frame update
-    private void Awake()
-    {
-        
-    }
-
-    private void Start()
-    {
-        StartLevel(testLevel);
-    }
+    [SerializeField]
+    protected ParticleSystem levelCompleteConfetti;
 
     private void OnEnable()
     {
@@ -59,8 +51,26 @@ public class LevelManager : MonoBehaviour
         return JSONUtils.ParseLevelGridJsonFile(levelGridsData[level-1]);
     }
 
-    public void StartLevel(int level)
+    public void StartLevel()
     {
-        levelGrid.OnGameStart(GetLevelData(level));
+        levelCompleteConfetti.Stop();
+        levelGrid.OnGameStart(GetLevelData(currentLevel), OnLevelFinished);
+    }
+
+    public void OnLevelFinished()
+    {
+        StartCoroutine(WaitAndSwitchGameOver(3f));
+    }
+
+    IEnumerator WaitAndSwitchGameOver(float time)
+    {
+        levelCompleteConfetti.Play();
+        yield return new WaitForSeconds(time);
+        GameManager.Instance.SwitchState(GameManager.GameState.GameOver);
+    }
+
+    public void SetCurrentLevelNumber(int level)
+    {
+        currentLevel = level;
     }
 }
